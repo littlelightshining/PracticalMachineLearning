@@ -1,0 +1,157 @@
+---
+title: "Pratice Machine Learning"
+author: "littlelight"
+date: "03 of November of 2018"
+output:
+  html_document:
+    keep_md: yes
+---
+## Synopsis
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset)
+
+The training data (train) for this project are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data (test) are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har.
+
+The goal of this project is to predict the manner in which they did the exercise. This is the "classe" variable in the train set.
+
+##### 1.SETTING WORKING DIRECTORY
+
+```{r setup working directory, echo=TRUE}
+ setwd("C:/Users/carla/OneDrive/Coursera/Practical Machine Learning/Week4_Project")
+```
+##### 2.LOADING PACKAGES
+```{r loadingpackages, echo=FALSE}
+library(knitr)
+library(caret)
+library(e1071)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(gbm)
+```
+##### 3.READING DATA
+```{r datareading, echo=TRUE    }
+train<- read.csv("pml-training.csv", na.strings = c("NA", "#DIV/0!", ""))
+
+test<- read.csv("pml-testing.csv", na.strings = c("NA", "#DIV/0!", ""))
+```
+
+##### 4.CREATING PARTITION TRAIN DATASET
+
+```{r partition, echo=TRUE    }
+
+in.train <- createDataPartition(train$classe, p=0.7, list=FALSE)
+
+train.set <- train[in.train, ]
+test.set  <- train[-in.train, ]
+
+dim(train.set)
+dim(test.set)
+```
+#### 5.REMOVE VARIABLES NEAR ZERO
+
+```{r removenearzero, echo=TRUE    }
+NZ <- nearZeroVar(train.set)
+train.set <- train.set[, -NZ]
+test.set <- test.set[, -NZ]
+
+dim(train.set)
+dim(test.set)
+```
+#### 6.REMOVE VARIABLES MOSTLY NAs
+
+```{r removemostlyNas, echo=TRUE    }
+NAs <- sapply(train.set, function(x) mean(is.na(x)))>0.95
+train.set <- train.set[, NAs==FALSE]
+test.set <- test.set[, NAs==FALSE]
+
+dim(train.set)
+dim(test.set)
+```
+
+#### 7. MODEL FIT TRAIN DATA SET - RANDOM FOREST
+
+```{r modelfittrainrandomforest, echo=TRUE    }
+
+set.seed(120)
+
+control.rf <- trainControl(method="cv", number=3, verboseIter=FALSE)
+
+modelfit.rf <- train(classe ~ ., data=train.set, method="rf",
+                          trControl=control.rf)
+modelfit.rf$finalModel
+
+```
+#### 8. PREDICTION OF THE TEST DATA SET - RANDOM FOREST
+```{r predicttestrandomforest, echo=TRUE    }
+
+predict.rf <- predict(modelfit.rf, newdata=test.set)
+
+conf.matrix.rf <- confusionMatrix(predict.rf, test.set$classe)
+
+conf.matrix.rf
+```
+#### 9. PLOT RESULTS - RANDOM FOREST
+
+```{r plotresultsrandomforest, echo=TRUE    }
+
+plot(conf.matrix.rf$table, col = conf.matrix.rf$byClass, 
+     main = paste("Random Forest - Accuracy =",
+                  round(conf.matrix.rf$overall['Accuracy'], 4)))
+```
+
+#### 10. MODEL FIT TRAIN DATA SET - GBM
+
+```{r modelfittraingbm, echo=TRUE    }
+
+set.seed(120)
+
+control.gmb <- trainControl(method = "repeatedcv", number = 5, repeats = 1)
+
+model.fit.gmb <- train(classe ~ ., data=train.set, method = "gbm",
+                    trControl = control.gmb, verbose = FALSE)
+
+model.fit.gmb$finalModel
+
+```
+#### 11. MODEL FIT TEST DATA SET - GBM
+
+```{r predicttestgbm, echo=TRUE    }
+
+predict.gbm <- predict(model.fit.gmb, newdata=test.set)
+
+conf.matrix.gbm <- confusionMatrix(predict.gbm, test.set$classe)
+
+conf.matrix.gbm
+```
+#### 12. PLOT RESULTS - GBM
+
+```{r plotresultsgbm, echo=TRUE    }
+
+plot(conf.matrix.gbm$table, col = conf.matrix.gbm$byClass, 
+     main = paste("GBM - Accuracy =", round(conf.matrix.gbm$overall['Accuracy'], 4)))
+```
+
+#### 13. SELECT AND APPLY THE MODEL TO TEST DATA
+
+
+#####Based on the accuracy results we selected Random Forest model to be applied to test data.
+
+```{r applymodeltestdata, echo=TRUE    }
+
+predict.test <- predict(modelfit.rf, newdata=test)
+
+predict.test
+
+```
+
+
+
